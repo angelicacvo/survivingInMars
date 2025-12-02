@@ -1,5 +1,6 @@
 ﻿import cron from 'node-cron';
 import db from '../models/index.js';
+import { getAllResourcesService } from '../services/resource.service.js';
 
 const { Resource, ResourceData, ChangeHistory } = db;
 
@@ -33,13 +34,14 @@ export const startResourceMonitoringCron = (io) => {
       const timestamp = new Date();
       console.log(`[CRON] ${resources.length} history records created - ${timestamp.toLocaleString('es-MX')}`);
 
+      // Get enriched resources with levels from service
+      const enrichedResources = await getAllResourcesService();
+
       // Emit update to all connected WebSocket clients
       if (io) {
-        const plainResources = resources.map(r => r.toJSON());
-
         io.emit('resources:update', {
-          resources: plainResources,
-          count: plainResources.length,
+          resources: enrichedResources,
+          count: enrichedResources.length,
           timestamp: timestamp.toISOString()
         });
 

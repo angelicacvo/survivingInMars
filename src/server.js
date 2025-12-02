@@ -8,18 +8,18 @@ import { router as resourceRoutes } from "./routes/resource.routes.js";
 import { startResourceMonitoringCron, startHistoryCleanupCron } from './cron/resource.cron.js';
 
 /**
- * Clase principal del servidor
- * Configura Express, base de datos, middlewares, rutas, WebSockets y cron jobs
+ * Main Server Class
+ * Configures Express, database, middlewares, routes, WebSockets and cron jobs
  */
 export class Server {
   constructor() {
     this.app = express();
     this.port = process.env.PORT || 3001;
     
-    // Crear servidor HTTP
+    // Create HTTP server
     this.httpServer = createServer(this.app);
     
-    // Configurar Socket.IO para tiempo real
+    // Configure Socket.IO for real-time communication
     this.io = new SocketIOServer(this.httpServer, {
       cors: {
         origin: "*",
@@ -27,27 +27,26 @@ export class Server {
       }
     });
     
-    // Hacer io accesible globalmente para los cron jobs
+    // Make io globally accessible for cron jobs
     global.io = this.io;
 
-    // Definición de rutas base de la API
+    // Define API base paths
     this.paths = {
       resources: "/api/resources",
     };
 
-    // Configurar middlewares y rutas PRIMERO
+    // Configure middlewares and routes FIRST
     this.middlewares();
     this.sockets();
     this.routes();
     
-    // LUEGO iniciar servidor (listen PRIMERO, DB DESPUÉS)
+    // THEN start server (listen FIRST, DB initialization AFTER)
     this.listen();
     this.databaseInit();
   }
 
   /**
-   * Inicializa la conexión a la base de datos
-   * y arranca los cron jobs una vez conectado
+   * Initialize database connection and start cron jobs
    */
   async databaseInit() {
     try {
@@ -56,39 +55,39 @@ export class Server {
       
       this.startCronJobs();
     } catch (error) {
-      console.error('[DB] Error connecting to database', error);
+      console.error('[DB] Error connecting to database:', error);
       throw error;
     }
   }
 
   /**
-   * Inicia las tareas programadas (cron jobs)
-   * - Monitoreo cada minuto: registra estado de recursos
-   * - Limpieza diaria: elimina registros antiguos
+   * Start scheduled tasks (cron jobs)
+   * - Monitoring every minute: records resource state
+   * - Daily cleanup: removes old records
    */
   startCronJobs() {
-    console.log('[CRON] Iniciando cron jobs...');
+    console.log('[CRON] Starting cron jobs...');
     
     startResourceMonitoringCron(this.io);
     startHistoryCleanupCron();
     
-    console.log('[CRON] Todos los cron jobs iniciados correctamente');
+    console.log('[CRON] All cron jobs started successfully');
   }
 
   /**
-   * Configura eventos de WebSocket para tiempo real
+   * Configure WebSocket events for real-time communication
    */
   sockets() {
     this.io.on('connection', async (socket) => {
-      console.log('[WebSocket] Cliente conectado:', socket.id);
+      console.log('[WebSocket] Client connected:', socket.id);
       
-      // Enviar estado inicial al conectarse
+      // Send welcome message when client connects
       socket.emit('welcome', {
-        message: 'Conectado al sistema de monitoreo en tiempo real',
+        message: 'Connected to real-time monitoring system',
         timestamp: new Date().toISOString()
       });
       
-      // Enviar datos iniciales de recursos al conectarse
+      // Send initial resource data on connection
       try {
         const { getAllResourcesService } = await import('./services/resource.service.js');
         const resources = await getAllResourcesService();
@@ -99,22 +98,22 @@ export class Server {
           timestamp: new Date().toISOString()
         });
         
-        console.log(`[WebSocket] Datos iniciales enviados a ${socket.id}: ${resources.length} recursos`);
+        console.log(`[WebSocket] Initial data sent to ${socket.id}: ${resources.length} resources`);
       } catch (error) {
-        console.error('[WebSocket] Error enviando datos iniciales:', error.message);
+        console.error('[WebSocket] Error sending initial data:', error.message);
       }
       
       socket.on('disconnect', () => {
-        console.log('[WebSocket] Cliente desconectado:', socket.id);
+        console.log('[WebSocket] Client disconnected:', socket.id);
       });
     });
   }
 
   /**
-   * Registra las rutas de la aplicación
+   * Register application routes
    */
   routes() {
-    // Ruta de prueba super simple
+    // Simple health check endpoint
     this.app.get('/ping', (req, res) => {
       res.json({ message: 'pong', timestamp: new Date().toISOString() });
     });
@@ -123,10 +122,10 @@ export class Server {
   }
 
   /**
-   * Configura middlewares de Express
-   * - CORS: permite peticiones desde cualquier origen
-   * - express.json(): parsea el body de las peticiones JSON
-   * - express.static(): sirve archivos estáticos (dashboard HTML)
+   * Configure Express middlewares
+   * - CORS: allows requests from any origin
+   * - express.json(): parses JSON request bodies
+   * - express.static(): serves static files from public directory
    */
   middlewares() {
     this.app.use(cors());
@@ -135,19 +134,17 @@ export class Server {
   }
 
   /**
-   * Inicia el servidor HTTP en el puerto configurado
+   * Start HTTP server on configured port
    */
   listen() {
     try {
       this.httpServer.listen(this.port, () => {
-        console.log(`Server is running on port ${this.port}`);
-        console.log(`WebSocket server ready for real-time updates`);
+        console.log(`[Server] Running on port ${this.port}`);
+        console.log(`[WebSocket] Server ready for real-time updates`);
       });
     } catch (error) {
-      console.error(`[Server] Error starting server`, error);
+      console.error(`[Server] Error starting server:`, error);
       throw error;
     }
   }
 }
-
-

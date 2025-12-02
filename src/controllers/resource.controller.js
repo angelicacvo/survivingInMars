@@ -82,6 +82,15 @@ export const updateResourceQuantityController = async (req, res) => {
       return res.status(400).json({ message: 'Invalid quantity. Must be a positive number' });
     }
     
+    // Enviar actualización por WebSocket a todos los clientes conectados
+    if (global.io) {
+      const allResources = await getAllResourcesService();
+      global.io.emit('resources:update', {
+        resources: allResources,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
     return res.status(200).json({ 
       message: 'Resource quantity updated successfully', 
       resource: result 
